@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Gestión de Ventanas</title>
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon" style="background:var(--success)"><i class="ti ti-building-store"></i></div>
+      <div><div class="logo-text">Syncargo</div><div class="logo-sub">Local Comercial</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="agenda.html"><i class="ti ti-calendar"></i> Agenda del Día</a>
+      <a class="nav-item active" href="ventanas.html"><i class="ti ti-clock"></i> Mis Ventanas</a>
+      <a class="nav-item" href="solicitudes.html"><i class="ti ti-bell"></i> Solicitudes</a>
+      <a class="nav-item" href="historial.html"><i class="ti ti-history"></i> Historial</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar" style="background:var(--success)">LC</div>
+      <div class="user-info"><div class="user-name" id="user-name">Local</div><div class="user-role" id="user-role">Local Comercial</div></div>
+      <button class="btn-logout" onclick="api.logout()"><i class="ti ti-logout"></i></button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Gestión de Ventanas Horarias</div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" onclick="ui.modal('modal-nueva')"><i class="ti ti-plus"></i> Nueva Ventana</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <input type="date" id="filtro-fecha" class="form-control" style="width:auto" onchange="cargar()">
+      </div>
+      <div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>Fecha</th><th>Hora inicio</th><th>Hora fin</th><th>Muelle</th><th>Estado</th><th>Reserva</th><th>Acción</th></tr></thead>
+            <tbody id="tabla-ventanas"><tr><td colspan="7" style="text-align:center;padding:24px"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-nueva">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Nueva Ventana Horaria</div>
+      <button class="btn btn-ghost btn-icon" onclick="ui.modal('modal-nueva')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Fecha</label><input id="n-fecha" type="date" class="form-control"></div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Hora inicio</label><input id="n-inicio" type="time" class="form-control" value="08:00"></div>
+        <div class="form-group"><label class="form-label">Hora fin</label><input id="n-fin" type="time" class="form-control" value="09:00"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Muelle</label><input id="n-muelle" type="number" class="form-control" value="1" min="1"></div>
+      <div class="form-group"><label class="form-label">Notas (opcional)</label><textarea id="n-notas" class="form-control" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="ui.modal('modal-nueva')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crear()"><i class="ti ti-check"></i> Crear</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/js/api.js"></script>
+<script>
+  api.requireAuth('local');
+  ui.setupSidebar();
+  document.getElementById('n-fecha').value = new Date().toISOString().split('T')[0];
+
+  async function cargar() {
+    const fecha = document.getElementById('filtro-fecha').value;
+    try {
+      const qs = fecha ? `?fecha=${fecha}` : '';
+      const ventanas = await api.get('/ventanas/mi-local' + qs);
+      const tbody = document.getElementById('tabla-ventanas');
+      if (!ventanas.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">🕐</div><div class="empty-title">Sin ventanas</div></div></td></tr>'; return; }
+      tbody.innerHTML = ventanas.map(v => `
+        <tr>
+          <td>${ui.fecha(v.fecha)}</td>
+          <td>${ui.hora(v.hora_inicio)}</td>
+          <td>${ui.hora(v.hora_fin)}</td>
+          <td>Muelle ${v.muelle}</td>
+          <td>${ui.badge(v.estado)}</td>
+          <td>${v.reserva ? `<span style="font-size:12px">${v.reserva.distribuidor?.nombre||'—'}</span>` : '<span style="color:var(--gray-400)">—</span>'}</td>
+          <td>${v.estado==='disponible'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="eliminar(${v.id})" title="Eliminar"><i class="ti ti-trash" style="color:var(--danger)"></i></button>`:'—'}</td>
+        </tr>`).join('');
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  async function crear() {
+    try {
+      await api.post('/ventanas', {
+        fecha: document.getElementById('n-fecha').value,
+        hora_inicio: document.getElementById('n-inicio').value,
+        hora_fin: document.getElementById('n-fin').value,
+        muelle: parseInt(document.getElementById('n-muelle').value),
+        notas: document.getElementById('n-notas').value
+      });
+      ui.modal('modal-nueva');
+      ui.toast('Ventana creada','success');
+      cargar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  async function eliminar(id) {
+    if (!confirm('¿Eliminar esta ventana?')) return;
+    try { await api.delete(`/ventanas/${id}`); ui.toast('Eliminada','success'); cargar(); }
+    catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  cargar();
+</script>
+</body>
+</html>

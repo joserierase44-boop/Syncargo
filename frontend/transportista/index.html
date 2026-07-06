@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Transportista</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <style>
+    .entrega-card { border:1px solid var(--gray-200); border-radius:var(--radius); padding:18px; background:#fff; margin-bottom:12px; border-left:4px solid var(--primary); }
+    .entrega-card.completada { border-left-color:var(--success); opacity:.85; }
+    .entrega-card.cancelada  { border-left-color:var(--gray-300); opacity:.7; }
+    .estado-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .btn-estado { padding:10px 18px; border-radius:var(--radius); font-size:13px; font-weight:600; border:none; cursor:pointer; transition:opacity .15s; color:#fff; }
+    .btn-estado:hover { opacity:.88; }
+    .btn-estado:disabled { opacity:.4; cursor:not-allowed; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🚚</div>
+      <div><h2>Syncargo</h2><span>Transportista</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="hoy" onclick="showPage('hoy',this)">
+        <i class="ti ti-route" aria-hidden="true"></i>Entregas de hoy
+      </a>
+      <a class="nav-item" data-page="historial" onclick="showPage('historial',this)">
+        <i class="ti ti-history" aria-hidden="true"></i>Historial
+      </a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="sidebar-user-info">
+        <div class="sidebar-avatar" id="sidebar-avatar">?</div>
+        <div>
+          <div class="u-name" id="sidebar-name">—</div>
+          <div class="u-role">Transportista</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">
+        <i class="ti ti-logout" aria-hidden="true"></i> Cerrar sesión
+      </button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="page-header">
+      <h1 id="page-title">Entregas de hoy</h1>
+      <div class="header-actions">
+        <button class="btn-notif" onclick="cargarEntregasHoy()" title="Actualizar">
+          <i class="ti ti-refresh" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- Hoy -->
+      <div id="page-hoy">
+        <div class="stats-grid mb-6">
+          <div class="stat-card amber">
+            <div class="stat-label">Pendientes hoy</div>
+            <div class="stat-value" id="st-hoy">—</div>
+            <div class="stat-sub">entregas activas</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">Completadas hoy</div>
+            <div class="stat-value" id="st-comp">—</div>
+            <div class="stat-sub">exitosas</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-label">Incidencias</div>
+            <div class="stat-value" id="st-inc">—</div>
+            <div class="stat-sub">reportadas</div>
+          </div>
+        </div>
+        <div id="lista-entregas">
+          <div class="empty-state">
+            <i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i>
+            <p>Cargando entregas...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historial -->
+      <div id="page-historial" class="hidden">
+        <div class="card">
+          <div class="card-header"><h3>Historial de entregas</h3></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Local</th><th>Fecha</th><th>Horario</th><th>Estado</th><th>Completado</th></tr>
+              </thead>
+              <tbody id="tabla-hist"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal incidencia -->
+<div id="modal-incidencia" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="ti ti-alert-triangle" style="color:var(--warning)"></i> Registrar incidencia</h3>
+      <button class="modal-close" onclick="cerrarModal('modal-incidencia')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Tipo de incidencia</label>
+        <select id="inc-tipo" class="form-control">
+          <option value="retraso">Retraso</option>
+          <option value="dano_mercancia">Daño en mercancía</option>
+          <option value="accidente">Accidente</option>
+          <option value="rechazo_local">Rechazo del local</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción detallada</label>
+        <textarea id="inc-descripcion" class="form-control" rows="4" placeholder="Describe el problema detalladamente..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-incidencia')">Cancelar</button>
+      <button class="btn btn-danger" onclick="guardarIncidencia()">
+        <i class="ti ti-alert-triangle"></i> Registrar incidencia
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script src="../shared/js/api.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────
+const user = requireAuth('transportista');
+if (user) {
+  document.getElementById('sidebar-name').textContent = user.nombre;
+  document.getElementById('sidebar-avatar').textContent = getInitials(user.nombre);
+}
+
+// ── Estado ────────────────────────────────────────────────
+let entregaIncidenciaId = null;
+
+const NEXT_ESTADO = {
+  confirmada:  'en_ruta',
+  en_ruta:     'llego_local',
+  llego_local: 'descargando',
+  descargando: 'completada'
+};
+
+const NEXT_LABEL = {
+  confirmada:  '🚛 Salir en ruta',
+  en_ruta:     '📍 Confirmar llegada',
+  llego_local: '📦 Iniciar descarga',
+  descargando: '✅ Descarga completada'
+};
+
+const NEXT_COLOR = {
+  confirmada:  '#2563EB',
+  en_ruta:     '#0891B2',
+  llego_local: '#7C3AED',
+  descargando: '#16A34A'
+};
+
+// ── Navegación ────────────────────────────────────────────
+function showPage(page, el) {
+  document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  if (el) el.classList.add('active');
+  const titles = { hoy: 'Entregas de hoy', historial: 'Historial de entregas' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'hoy')       cargarEntregasHoy();
+  if (page === 'historial') cargarHistorial();
+}
+
+// ── Cargar entregas de hoy ────────────────────────────────
+async function cargarEntregasHoy() {
+  const div = document.getElementById('lista-entregas');
+  div.innerHTML = '<div class="empty-state"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Cargando...</p></div>';
+
+  try {
+    const [stats, entregas] = await Promise.all([
+      api.dashboard('transportista'),
+      api.entregas.misEntregas()
+    ]);
+
+    document.getElementById('st-hoy').textContent  = stats.entregasHoy  ?? '0';
+    document.getElementById('st-comp').textContent = stats.completadasHoy ?? '0';
+    document.getElementById('st-inc').textContent  = stats.incidencias  ?? '0';
+
+    const activas = entregas.filter(e => !['completada','cancelada'].includes(e.estado));
+
+    if (!activas.length) {
+      div.innerHTML = `<div class="empty-state">
+        <i class="ti ti-truck-off"></i>
+        <p>Sin entregas pendientes por ahora</p>
+        <p style="font-size:12px;margin-top:8px">Cuando te asignen una entrega aparecerá aquí</p>
+      </div>`;
+      return;
+    }
+
+    div.innerHTML = activas.map(e => renderEntregaCard(e)).join('');
+  } catch(err) {
+    div.innerHTML = `<div class="empty-state">
+      <i class="ti ti-wifi-off"></i>
+      <p>${err.message}</p>
+      <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="cargarEntregasHoy()">Reintentar</button>
+    </div>`;
+  }
+}
+
+function renderEntregaCard(e) {
+  const local  = e.reserva?.ventana?.local;
+  const dist   = e.reserva?.distribuidor;
+  const v      = e.reserva?.ventana;
+  const nextE  = NEXT_ESTADO[e.estado];
+  const nextL  = NEXT_LABEL[e.estado];
+  const nextC  = NEXT_COLOR[e.estado];
+
+  const ESTADOS_TL = ['programada','confirmada','en_ruta','llego_local','descargando','completada'];
+  const idx = ESTADOS_TL.indexOf(e.estado);
+  const timeline = ESTADOS_TL.map((s, i) => {
+    const cls  = i < idx ? 'done' : i === idx ? 'active' : '';
+    const icon = i < idx ? '✓' : i === idx ? '●' : '';
+    return `<div class="timeline-step">
+      <div class="timeline-dot ${cls}">${icon}</div>
+      <div class="timeline-label ${cls === 'active' ? 'active' : ''}" style="font-size:9px">${ESTADO_LABELS[s]||s}</div>
+    </div>`;
+  }).join('');
+
+  const cardClass = ['completada','cancelada'].includes(e.estado) ? e.estado : '';
+
+  return `<div class="entrega-card ${cardClass}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:16px;font-weight:700">${local?.nombre || '—'}</div>
+        <div style="font-size:12px;color:var(--gray-500)">${local?.direccion || '—'}</div>
+      </div>
+      ${badge(e.estado)}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:13px;margin-bottom:12px;background:var(--gray-50);padding:12px;border-radius:var(--radius)">
+      <div><span style="color:var(--gray-500);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Fecha</span><br><strong>${v?.fecha || '—'}</strong></div>
+      <div><span style="color:var(--gray-500);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Ventana</span><br><strong>${v?.hora_inicio?.slice(0,5)||'—'} – ${v?.hora_fin?.slice(0,5)||'—'}</strong></div>
+      <div><span style="color:var(--gray-500);font-size:11px;text-transform:uppercase;letter-spacing:.05em">Muelle</span><br><strong>${v?.muelle || '—'}</strong></div>
+    </div>
+
+    <div style="font-size:13px;margin-bottom:12px">
+      <span style="color:var(--gray-500)">Distribuidor:</span>
+      <strong>${dist?.nombre||'—'}</strong>
+      ${dist?.telefono ? `<a href="tel:${dist.telefono}" style="color:var(--primary);margin-left:6px"><i class="ti ti-phone" style="font-size:13px"></i></a>` : ''}
+    </div>
+
+    ${e.reserva?.descripcion_carga ? `<div style="font-size:13px;margin-bottom:12px;padding:10px;background:#FFF7ED;border-radius:var(--radius);border-left:3px solid var(--warning)">
+      <span style="color:var(--gray-500)">Carga:</span> ${e.reserva.descripcion_carga}
+      ${e.reserva.peso_kg ? `· <strong>${e.reserva.peso_kg} kg</strong>` : ''}
+      ${e.reserva.num_bultos ? `· <strong>${e.reserva.num_bultos} bultos</strong>` : ''}
+    </div>` : ''}
+
+    <div class="timeline">${timeline}</div>
+
+    <div class="estado-actions">
+      ${nextE ? `<button class="btn-estado" style="background:${nextC}" onclick="avanzarEstado(${e.id},'${nextE}',this)">${nextL}</button>` : ''}
+      <button class="btn btn-outline btn-sm" onclick="abrirIncidencia(${e.id})">
+        <i class="ti ti-alert-triangle" style="color:var(--warning)"></i> Incidencia
+      </button>
+      ${local?.latitud ? `<a href="https://maps.google.com/?q=${local.latitud},${local.longitud}" target="_blank" class="btn btn-outline btn-sm">
+        <i class="ti ti-map-pin" style="color:var(--primary)"></i> Ver en mapa
+      </a>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Avanzar estado ────────────────────────────────────────
+async function avanzarEstado(id, estado, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Actualizando...'; }
+  try {
+    await api.entregas.actualizarEstado(id, estado);
+    showToast('Estado actualizado', ESTADO_LABELS[estado], 'success');
+    await cargarEntregasHoy();
+  } catch(err) {
+    showToast('Error', err.message, 'danger');
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+// ── Incidencias ───────────────────────────────────────────
+function abrirIncidencia(entregaId) {
+  entregaIncidenciaId = entregaId;
+  document.getElementById('inc-descripcion').value = '';
+  document.getElementById('modal-incidencia').classList.remove('hidden');
+}
+
+function cerrarModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+async function guardarIncidencia() {
+  const tipo = document.getElementById('inc-tipo').value;
+  const desc = document.getElementById('inc-descripcion').value.trim();
+  if (!desc) { showToast('Error', 'Describe la incidencia', 'danger'); return; }
+  try {
+    await api.incidencias.crear({ entrega_id: entregaIncidenciaId, tipo, descripcion: desc });
+    showToast('Incidencia registrada', 'Se notificó al local', 'warning');
+    cerrarModal('modal-incidencia');
+    cargarEntregasHoy();
+  } catch(err) {
+    showToast('Error', err.message, 'danger');
+  }
+}
+
+// ── Historial ─────────────────────────────────────────────
+async function cargarHistorial() {
+  try {
+    const entregas = await api.entregas.misEntregas();
+    const tbody = document.getElementById('tabla-hist');
+    if (!entregas.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:30px">Sin historial</td></tr>';
+      return;
+    }
+    tbody.innerHTML = entregas.map(e => {
+      const local = e.reserva?.ventana?.local?.nombre || '—';
+      const fecha = e.reserva?.ventana?.fecha || '—';
+      const hor   = e.reserva?.ventana
+        ? `${e.reserva.ventana.hora_inicio?.slice(0,5)} – ${e.reserva.ventana.hora_fin?.slice(0,5)}`
+        : '—';
+      return `<tr>
+        <td><strong>${local}</strong></td>
+        <td>${fecha}</td>
+        <td>${hor}</td>
+        <td>${badge(e.estado)}</td>
+        <td style="color:var(--gray-500);font-size:12px">${e.hora_completado ? formatFecha(e.hora_completado) : '—'}</td>
+      </tr>`;
+    }).join('');
+  } catch(err) {
+    showToast('Error', err.message, 'danger');
+  }
+}
+
+// ── Cerrar modal con ESC ──────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+});
+
+// ── Init ──────────────────────────────────────────────────
+cargarEntregasHoy();
+</script>
+</body>
+</html>

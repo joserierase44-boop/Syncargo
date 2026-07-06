@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Local Comercial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <style>
+    .ventana-card { border:1px solid var(--gray-200); border-radius:var(--radius); padding:14px; background:#fff; transition:box-shadow .15s; }
+    .ventana-card:hover { box-shadow:var(--shadow-md); }
+    .ventana-card.disponible { border-left:3px solid var(--success); }
+    .ventana-card.reservada  { border-left:3px solid var(--primary); }
+    .ventana-card.bloqueada  { border-left:3px solid var(--gray-300); opacity:.6; }
+    .agenda-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+    .solicitud-item { border:1px solid var(--gray-200); border-radius:var(--radius); padding:16px; background:#fff; margin-bottom:10px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🚚</div>
+      <div><h2>Syncargo</h2><span>Local Comercial</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="agenda" onclick="showPage('agenda',this)"><i class="ti ti-calendar"></i>Agenda del día</a>
+      <a class="nav-item" data-page="ventanas" onclick="showPage('ventanas',this)"><i class="ti ti-clock"></i>Ventanas horarias</a>
+      <a class="nav-item" data-page="solicitudes" onclick="showPage('solicitudes',this)">
+        <i class="ti ti-bell"></i>Solicitudes
+        <span id="badge-sol" class="badge badge-pendiente hidden" style="margin-left:auto;font-size:10px"></span>
+      </a>
+      <a class="nav-item" data-page="historial" onclick="showPage('historial',this)"><i class="ti ti-history"></i>Historial</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="sidebar-user-info">
+        <div class="sidebar-avatar" id="sidebar-avatar">L</div>
+        <div>
+          <div class="u-name" id="sidebar-name">—</div>
+          <div class="u-role">Local Comercial</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="ti ti-logout"></i> Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="page-header">
+      <h1 id="page-title">Agenda del día</h1>
+      <div class="header-actions">
+        <input type="date" id="fecha-selector" class="form-control" style="width:160px" onchange="cargarAgenda()">
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- Agenda -->
+      <div id="page-agenda">
+        <div class="stats-grid mb-6">
+          <div class="stat-card green"><div class="stat-label">Ventanas hoy</div><div class="stat-value" id="st-ventanas">—</div></div>
+          <div class="stat-card amber"><div class="stat-label">Pendientes</div><div class="stat-value" id="st-pendientes">—</div></div>
+          <div class="stat-card blue"><div class="stat-label">Completadas mes</div><div class="stat-value" id="st-completadas">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 id="agenda-titulo">Hoy</h3>
+            <button class="btn btn-primary btn-sm" onclick="showPage('ventanas')"><i class="ti ti-plus"></i> Agregar ventana</button>
+          </div>
+          <div class="card-body">
+            <div class="agenda-grid" id="agenda-grid">
+              <div class="empty-state"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Cargando...</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ventanas -->
+      <div id="page-ventanas" class="hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <input type="date" id="v-fecha-filtro" class="form-control" style="width:180px" onchange="cargarVentanas()">
+          <button class="btn btn-primary" onclick="abrirModalVentana()"><i class="ti ti-plus"></i> Nueva ventana</button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table><thead><tr><th>Fecha</th><th>Hora inicio</th><th>Hora fin</th><th>Muelle</th><th>Estado</th><th>Reservado por</th><th>Acciones</th></tr></thead>
+            <tbody id="tabla-ventanas"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solicitudes -->
+      <div id="page-solicitudes" class="hidden">
+        <div id="lista-solicitudes">
+          <div class="empty-state"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <!-- Historial -->
+      <div id="page-historial" class="hidden">
+        <div class="card">
+          <div class="table-wrap">
+            <table><thead><tr><th>Fecha</th><th>Horario</th><th>Distribuidor</th><th>Carga</th><th>Estado</th></tr></thead>
+            <tbody id="tabla-historial"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal nueva ventana -->
+<div id="modal-ventana" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3>Nueva ventana horaria</h3><button class="modal-close" onclick="cerrarModal('modal-ventana')">×</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Fecha</label><input type="date" id="nv-fecha" class="form-control"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Hora inicio</label><input type="time" id="nv-inicio" class="form-control"></div>
+        <div class="form-group"><label class="form-label">Hora fin</label><input type="time" id="nv-fin" class="form-control"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Muelle #</label>
+        <select id="nv-muelle" class="form-control">
+          <option value="1">Muelle 1</option><option value="2">Muelle 2</option><option value="3">Muelle 3</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-ventana')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearVentana()"><i class="ti ti-check"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal responder -->
+<div id="modal-responder" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3>Responder solicitud</h3><button class="modal-close" onclick="cerrarModal('modal-responder')">×</button></div>
+    <div class="modal-body">
+      <div id="solicitud-detalle" style="margin-bottom:16px;padding:14px;background:var(--gray-50);border-radius:var(--radius);font-size:13px;line-height:1.7"></div>
+      <div id="motivo-group" class="form-group hidden">
+        <label class="form-label">Motivo de rechazo</label>
+        <textarea id="motivo-rechazo" class="form-control" rows="3" placeholder="Explica el motivo del rechazo..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-responder')">Cancelar</button>
+      <button class="btn btn-danger" onclick="document.getElementById('motivo-group').classList.remove('hidden'); responderSolicitud('rechazada')"><i class="ti ti-x"></i> Rechazar</button>
+      <button class="btn btn-success" onclick="responderSolicitud('confirmada')"><i class="ti ti-check"></i> Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<style>@keyframes spin { to { transform:rotate(360deg); } }</style>
+
+<script src="../shared/js/api.js"></script>
+<script>
+const user = requireAuth('local');
+if (user) {
+  document.getElementById('sidebar-name').textContent = user.nombre;
+  document.getElementById('sidebar-avatar').textContent = getInitials(user.nombre);
+}
+
+let reservaActualId = null;
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('fecha-selector').value = today;
+document.getElementById('v-fecha-filtro').value = today;
+
+function showPage(page, el) {
+  document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  if (el) el.classList.add('active');
+  else document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  const titles = { agenda:'Agenda del día', ventanas:'Ventanas horarias', solicitudes:'Solicitudes pendientes', historial:'Historial de entregas' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'agenda')      cargarAgenda();
+  if (page === 'ventanas')    cargarVentanas();
+  if (page === 'solicitudes') cargarSolicitudes();
+  if (page === 'historial')   cargarHistorial();
+}
+
+async function cargarAgenda() {
+  const fecha = document.getElementById('fecha-selector').value;
+  try {
+    const [stats, ventanas] = await Promise.all([api.dashboard('local'), api.ventanas.miLocal(fecha)]);
+    document.getElementById('st-ventanas').textContent    = stats.ventanasHoy   ?? '0';
+    document.getElementById('st-pendientes').textContent  = stats.pendientes     ?? '0';
+    document.getElementById('st-completadas').textContent = stats.completadasMes ?? '0';
+    if (stats.pendientes > 0) {
+      document.getElementById('badge-sol').textContent = stats.pendientes;
+      document.getElementById('badge-sol').classList.remove('hidden');
+    }
+    document.getElementById('agenda-titulo').textContent = fecha === today
+      ? 'Hoy — ' + new Date().toLocaleDateString('es-EC', { weekday:'long', day:'numeric', month:'long' })
+      : formatFecha(fecha);
+    const grid = document.getElementById('agenda-grid');
+    if (!ventanas.length) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="ti ti-calendar-off"></i><p>Sin ventanas para esta fecha</p><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="showPage(\'ventanas\')">Crear ventana</button></div>';
+      return;
+    }
+    grid.innerHTML = ventanas.map(v => `
+      <div class="ventana-card ${v.estado}">
+        <div style="font-weight:700;font-size:16px">${v.hora_inicio?.slice(0,5)} – ${v.hora_fin?.slice(0,5)}</div>
+        <div style="color:var(--gray-500);font-size:12px;margin-bottom:8px">Muelle ${v.muelle}</div>
+        <div style="margin-bottom:8px">${badge(v.estado)}</div>
+        ${v.reserva ? `<div style="font-size:12px"><strong>${v.reserva.distribuidor?.nombre || '—'}</strong><br><span style="color:var(--gray-500)">${v.reserva.descripcion_carga || ''}</span></div>` : ''}
+        ${v.reserva?.estado === 'pendiente' ? `<button class="btn btn-primary btn-sm w-full" style="margin-top:8px" onclick="abrirResponder(${v.reserva.id},'${v.reserva.distribuidor?.nombre}','${v.reserva.descripcion_carga}','${v.reserva.peso_kg}','${v.fecha}','${v.hora_inicio}')">Responder</button>` : ''}
+        ${v.estado === 'disponible' ? `<button class="btn btn-outline btn-sm w-full" style="margin-top:8px" onclick="bloquearVentana(${v.id})"><i class="ti ti-lock"></i> Bloquear</button>` : ''}
+      </div>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function cargarVentanas() {
+  const fecha = document.getElementById('v-fecha-filtro').value;
+  try {
+    const ventanas = await api.ventanas.miLocal(fecha);
+    document.getElementById('tabla-ventanas').innerHTML = !ventanas.length
+      ? `<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:30px">Sin ventanas para esta fecha</td></tr>`
+      : ventanas.map(v => `<tr>
+          <td>${v.fecha}</td>
+          <td>${v.hora_inicio?.slice(0,5)}</td>
+          <td>${v.hora_fin?.slice(0,5)}</td>
+          <td>Muelle ${v.muelle}</td>
+          <td>${badge(v.estado)}</td>
+          <td>${v.reserva ? `<strong>${v.reserva.distribuidor?.nombre}</strong><br><span style="font-size:11px;color:var(--gray-500)">${v.reserva.distribuidor?.telefono || ''}</span>` : '—'}</td>
+          <td>
+            ${v.estado === 'disponible' ? `<button class="btn btn-outline btn-sm" onclick="bloquearVentana(${v.id})">Bloquear</button> <button class="btn btn-danger btn-sm" onclick="eliminarVentana(${v.id})"><i class="ti ti-trash"></i></button>` : ''}
+            ${v.reserva?.estado === 'pendiente' ? `<button class="btn btn-primary btn-sm" onclick="abrirResponder(${v.reserva.id},'${v.reserva.distribuidor?.nombre}','${v.reserva.descripcion_carga}','${v.reserva.peso_kg}','${v.fecha}','${v.hora_inicio}')"><i class="ti ti-check"></i> Responder</button>` : ''}
+          </td>
+        </tr>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function cargarSolicitudes() {
+  const lista = document.getElementById('lista-solicitudes');
+  lista.innerHTML = '<div class="empty-state"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Cargando...</p></div>';
+  try {
+    const ventanas = await api.ventanas.miLocal();
+    const solicitudes = ventanas.filter(v => v.reserva?.estado === 'pendiente');
+    if (!solicitudes.length) {
+      lista.innerHTML = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Sin solicitudes pendientes</p></div>';
+      return;
+    }
+    lista.innerHTML = solicitudes.map(v => `
+      <div class="solicitud-item">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div><strong style="font-size:15px">${v.reserva.distribuidor?.nombre}</strong><br><span style="color:var(--gray-500);font-size:12px">${v.reserva.distribuidor?.telefono || ''}</span></div>
+          ${badge('pendiente')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:13px;background:var(--gray-50);padding:12px;border-radius:var(--radius);margin-bottom:12px">
+          <div><span style="color:var(--gray-500);font-size:11px">FECHA</span><br><strong>${v.fecha}</strong></div>
+          <div><span style="color:var(--gray-500);font-size:11px">HORARIO</span><br><strong>${v.hora_inicio?.slice(0,5)} – ${v.hora_fin?.slice(0,5)}</strong></div>
+          <div><span style="color:var(--gray-500);font-size:11px">MUELLE</span><br><strong>${v.muelle}</strong></div>
+        </div>
+        <div style="font-size:13px;margin-bottom:12px">
+          <span style="color:var(--gray-500)">Carga:</span> ${v.reserva.descripcion_carga || '—'}
+          ${v.reserva.peso_kg ? `· <strong>${v.reserva.peso_kg} kg</strong>` : ''}
+          ${v.reserva.num_bultos ? `· <strong>${v.reserva.num_bultos} bultos</strong>` : ''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-danger btn-sm" onclick="abrirResponder(${v.reserva.id},'${v.reserva.distribuidor?.nombre}','${v.reserva.descripcion_carga}','${v.reserva.peso_kg}','${v.fecha}','${v.hora_inicio}')"><i class="ti ti-x"></i> Rechazar</button>
+          <button class="btn btn-success btn-sm" onclick="responderDirecto(${v.reserva.id},'confirmada')"><i class="ti ti-check"></i> Confirmar</button>
+        </div>
+      </div>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function cargarHistorial() {
+  try {
+    const ventanas = await api.ventanas.miLocal();
+    const todas = ventanas.filter(v => v.reserva);
+    document.getElementById('tabla-historial').innerHTML = !todas.length
+      ? `<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:30px">Sin historial</td></tr>`
+      : todas.map(v => `<tr>
+          <td>${v.fecha}</td>
+          <td>${v.hora_inicio?.slice(0,5)} – ${v.hora_fin?.slice(0,5)}</td>
+          <td>${v.reserva.distribuidor?.nombre || '—'}</td>
+          <td style="color:var(--gray-500);font-size:12px">${v.reserva.descripcion_carga || '—'}</td>
+          <td>${badge(v.reserva.estado)}</td>
+        </tr>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+function abrirModalVentana() {
+  document.getElementById('nv-fecha').value = today;
+  document.getElementById('modal-ventana').classList.remove('hidden');
+}
+
+function cerrarModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+async function crearVentana() {
+  const fecha = document.getElementById('nv-fecha').value;
+  const ini   = document.getElementById('nv-inicio').value;
+  const fin   = document.getElementById('nv-fin').value;
+  const muelle= document.getElementById('nv-muelle').value;
+  if (!fecha || !ini || !fin) { showToast('Error', 'Completa todos los campos', 'danger'); return; }
+  if (ini >= fin) { showToast('Error', 'La hora de inicio debe ser antes que la hora de fin', 'danger'); return; }
+  try {
+    await api.ventanas.crear({ ventanas: [{ fecha, hora_inicio: ini+':00', hora_fin: fin+':00', muelle }] });
+    showToast('Ventana creada', `${ini} – ${fin}`, 'success');
+    cerrarModal('modal-ventana');
+    cargarVentanas();
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function bloquearVentana(id) {
+  if (!confirm('¿Bloquear esta ventana?')) return;
+  try { await api.ventanas.bloquear(id); showToast('Ventana bloqueada', '', 'success'); cargarAgenda(); cargarVentanas(); }
+  catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function eliminarVentana(id) {
+  if (!confirm('¿Eliminar esta ventana?')) return;
+  try { await api.ventanas.eliminar(id); showToast('Ventana eliminada', '', 'success'); cargarVentanas(); }
+  catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+function abrirResponder(id, nombre, carga, peso, fecha, hora) {
+  reservaActualId = id;
+  document.getElementById('solicitud-detalle').innerHTML = `
+    <strong style="font-size:15px">${nombre}</strong><br>
+    <span style="color:var(--gray-500)">Carga:</span> ${carga || '—'}${peso ? ` · ${peso} kg` : ''}<br>
+    <span style="color:var(--gray-500)">Fecha:</span> ${fecha} a las ${hora?.slice(0,5)}`;
+  document.getElementById('motivo-group').classList.add('hidden');
+  document.getElementById('motivo-rechazo').value = '';
+  document.getElementById('modal-responder').classList.remove('hidden');
+}
+
+async function responderSolicitud(estado) {
+  const motivo = document.getElementById('motivo-rechazo').value;
+  if (estado === 'rechazada' && !motivo.trim()) {
+    document.getElementById('motivo-group').classList.remove('hidden');
+    showToast('Escribe el motivo de rechazo', '', 'warning');
+    return;
+  }
+  try {
+    await api.reservas.responder(reservaActualId, { estado, motivo_rechazo: motivo });
+    showToast(estado === 'confirmada' ? 'Solicitud confirmada ✅' : 'Solicitud rechazada', '', estado === 'confirmada' ? 'success' : 'danger');
+    cerrarModal('modal-responder');
+    cargarAgenda(); cargarSolicitudes();
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function responderDirecto(id, estado) {
+  try {
+    await api.reservas.responder(id, { estado });
+    showToast('Listo', '', 'success');
+    cargarSolicitudes(); cargarAgenda();
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+});
+
+cargarAgenda();
+</script>
+</body>
+</html>

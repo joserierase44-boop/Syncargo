@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Coordinación Logística Urbana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="shared/css/main.css">
+</head>
+<body>
+<div class="login-page">
+
+  <!-- Panel izquierdo — presentación -->
+  <div class="login-left">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:48px">
+      <div style="width:48px;height:48px;background:rgba(255,255,255,0.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px">🚚</div>
+      <span style="font-size:22px;font-weight:800;letter-spacing:-0.5px">Syncargo</span>
+    </div>
+
+    <h1>Coordinación<br>logística urbana</h1>
+    <p>Conecta distribuidores, transportistas y locales comerciales en una sola plataforma digital.</p>
+
+    <div class="login-features">
+      <div class="login-feature">
+        <div class="login-feature-icon"><i class="ti ti-calendar-check" aria-hidden="true"></i></div>
+        <span>Programa horarios de carga y descarga</span>
+      </div>
+      <div class="login-feature">
+        <div class="login-feature-icon"><i class="ti ti-route" aria-hidden="true"></i></div>
+        <span>Seguimiento de entregas en tiempo real</span>
+      </div>
+      <div class="login-feature">
+        <div class="login-feature-icon"><i class="ti ti-users" aria-hidden="true"></i></div>
+        <span>Coordina 4 actores en un solo sistema</span>
+      </div>
+      <div class="login-feature">
+        <div class="login-feature-icon"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+        <span>Reportes y métricas operativas</span>
+      </div>
+    </div>
+
+    <!-- Estadísticas decorativas -->
+    <div style="display:flex;gap:32px;margin-top:48px;padding-top:32px;border-top:1px solid rgba(255,255,255,0.15)">
+      <div>
+        <div style="font-size:28px;font-weight:800">4</div>
+        <div style="font-size:12px;opacity:0.7">Tipos de usuarios</div>
+      </div>
+      <div>
+        <div style="font-size:28px;font-weight:800">7</div>
+        <div style="font-size:12px;opacity:0.7">Estados de entrega</div>
+      </div>
+      <div>
+        <div style="font-size:28px;font-weight:800">100%</div>
+        <div style="font-size:12px;opacity:0.7">Digital y trazable</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel derecho — login -->
+  <div class="login-right">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="logo-icon">🚚</div>
+        <h2>Syncargo</h2>
+        <p>Coordinación logística urbana</p>
+      </div>
+
+      <p class="login-title">Iniciar sesión</p>
+
+      <div id="error-msg" class="alert alert-danger hidden"></div>
+
+      <div class="form-group">
+        <label class="form-label">Correo electrónico</label>
+        <input type="email" id="email" class="form-control" placeholder="tu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <div style="position:relative">
+          <input type="password" id="password" class="form-control" placeholder="••••••••" autocomplete="current-password" style="padding-right:40px">
+          <button onclick="togglePass()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray-500);cursor:pointer;font-size:16px" id="eye-btn">
+            <i class="ti ti-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary w-full" id="btn-login" style="justify-content:center;padding:11px;margin-bottom:24px">
+        <i class="ti ti-login"></i> Iniciar sesión
+      </button>
+
+      <!-- Accesos de prueba -->
+      <div style="border-top:1px solid var(--gray-100);padding-top:20px">
+        <p style="font-size:12px;color:var(--gray-500);font-weight:600;margin-bottom:10px;text-align:center">ACCESOS DE PRUEBA</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="role-btn" onclick="fillDemo('admin@syncargo.com','admin123')">
+            <i class="ti ti-shield-check" style="font-size:16px;color:#2563EB;display:block;margin-bottom:4px"></i>
+            Administrador
+          </button>
+          <button class="role-btn" onclick="fillDemo('local@favi.com','local123')">
+            <i class="ti ti-building-store" style="font-size:16px;color:#16A34A;display:block;margin-bottom:4px"></i>
+            Local Comercial
+          </button>
+          <button class="role-btn" onclick="fillDemo('dist@norteexpress.com','dist123')">
+            <i class="ti ti-truck-delivery" style="font-size:16px;color:#D97706;display:block;margin-bottom:4px"></i>
+            Distribuidor
+          </button>
+          <button class="role-btn" onclick="fillDemo('trans@carlos.com','trans123')">
+            <i class="ti ti-steering-wheel" style="font-size:16px;color:#DC2626;display:block;margin-bottom:4px"></i>
+            Transportista
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="shared/js/api.js"></script>
+<script>
+  // Redirigir si ya está autenticado
+  const user = api.getUser();
+  if (user && api.getToken()) {
+    window.location.href = PORTALES[user.rol] || '/login.html';
+  }
+
+  function fillDemo(email, pass) {
+    document.getElementById('email').value = email;
+    document.getElementById('password').value = pass;
+    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected'));
+    event.target.closest('.role-btn').classList.add('selected');
+  }
+
+  let passVisible = false;
+  function togglePass() {
+    passVisible = !passVisible;
+    const input = document.getElementById('password');
+    const btn   = document.getElementById('eye-btn');
+    input.type  = passVisible ? 'text' : 'password';
+    btn.innerHTML = passVisible ? '<i class="ti ti-eye-off"></i>' : '<i class="ti ti-eye"></i>';
+  }
+
+  document.getElementById('btn-login').addEventListener('click', async () => {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const errDiv   = document.getElementById('error-msg');
+    const btn      = document.getElementById('btn-login');
+
+    errDiv.classList.add('hidden');
+    if (!email || !password) {
+      errDiv.textContent = 'Ingresa email y contraseña';
+      errDiv.classList.remove('hidden');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> Ingresando...';
+
+    try {
+      const { token, usuario } = await api.login(email, password);
+      api.setAuth(token, usuario);
+      window.location.href = PORTALES[usuario.rol] || '/login.html';
+    } catch (err) {
+      errDiv.textContent = err.message;
+      errDiv.classList.remove('hidden');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-login"></i> Iniciar sesión';
+    }
+  });
+
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-login').click();
+  });
+
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+</script>
+</body>
+</html>

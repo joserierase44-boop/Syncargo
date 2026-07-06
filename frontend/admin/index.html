@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Administrador</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="../shared/css/main.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🚚</div>
+      <div><h2>Syncargo</h2><span>Administrador</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i>Dashboard</a>
+      <a class="nav-item" data-page="usuarios" onclick="showPage('usuarios',this)"><i class="ti ti-users"></i>Usuarios</a>
+      <a class="nav-item" data-page="locales" onclick="showPage('locales',this)"><i class="ti ti-building-store"></i>Locales</a>
+      <a class="nav-item" data-page="entregas" onclick="showPage('entregas',this)"><i class="ti ti-truck-delivery"></i>Entregas</a>
+      <a class="nav-item" data-page="reportes" onclick="showPage('reportes',this)"><i class="ti ti-chart-bar"></i>Reportes</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="sidebar-user-info">
+        <div class="sidebar-avatar" id="sidebar-avatar">A</div>
+        <div>
+          <div class="u-name" id="sidebar-name">—</div>
+          <div class="u-role">Administrador</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="ti ti-logout"></i> Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="page-header">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="header-actions">
+        <button class="btn btn-outline btn-sm" onclick="recargarPagina()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card blue"><div class="stat-label">Total usuarios</div><div class="stat-value" id="st-usuarios">—</div><div class="stat-sub">activos</div></div>
+          <div class="stat-card green"><div class="stat-label">Locales activos</div><div class="stat-value" id="st-locales">—</div><div class="stat-sub">registrados</div></div>
+          <div class="stat-card amber"><div class="stat-label">Total entregas</div><div class="stat-value" id="st-entregas">—</div><div class="stat-sub">en el sistema</div></div>
+          <div class="stat-card red"><div class="stat-label">Incidencias hoy</div><div class="stat-value" id="st-incidencias">—</div><div class="stat-sub">reportadas</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Entregas por estado</h3></div>
+          <div class="card-body" id="estados-grid" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+        </div>
+      </div>
+
+      <!-- Usuarios -->
+      <div id="page-usuarios" class="hidden">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <select class="form-control" id="filtro-rol" style="width:180px" onchange="cargarUsuarios()">
+            <option value="">Todos los roles</option>
+            <option value="local">Local</option>
+            <option value="distribuidor">Distribuidor</option>
+            <option value="transportista">Transportista</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button class="btn btn-primary" onclick="document.getElementById('modal-usuario').classList.remove('hidden')">
+            <i class="ti ti-plus"></i> Nuevo usuario
+          </button>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Teléfono</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody id="tabla-usuarios"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Locales -->
+      <div id="page-locales" class="hidden">
+        <div class="card">
+          <div class="card-header"><h3>Locales registrados</h3></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Local</th><th>Ciudad</th><th>Dirección</th><th>Muelles</th><th>Horario</th><th>Estado</th></tr></thead>
+              <tbody id="tabla-locales"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entregas — CON BOTÓN ASIGNAR TRANSPORTISTA -->
+      <div id="page-entregas" class="hidden">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+          <select class="form-control" id="filtro-estado-entrega" style="width:200px" onchange="cargarEntregas()">
+            <option value="">Todos los estados</option>
+            <option value="programada">Programada</option>
+            <option value="confirmada">Confirmada</option>
+            <option value="en_ruta">En ruta</option>
+            <option value="llego_local">Llegó al local</option>
+            <option value="descargando">Descargando</option>
+            <option value="completada">Completada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+          <span style="font-size:12px;color:var(--gray-500)">
+            <i class="ti ti-info-circle"></i> Haz clic en <strong>Asignar</strong> para asignar un transportista
+          </span>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Local</th>
+                  <th>Distribuidor</th>
+                  <th>Transportista</th>
+                  <th>Fecha</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-entregas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reportes -->
+      <div id="page-reportes" class="hidden">
+        <div class="stats-grid" id="reporte-stats"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal nuevo usuario -->
+<div id="modal-usuario" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Nuevo usuario</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-usuario').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nombre completo</label><input id="u-nombre" class="form-control" placeholder="Nombre completo"></div>
+        <div class="form-group"><label class="form-label">Email</label><input id="u-email" type="email" class="form-control" placeholder="correo@ejemplo.com"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Contraseña</label><input id="u-password" type="password" class="form-control" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group"><label class="form-label">Teléfono</label><input id="u-telefono" class="form-control" placeholder="09XXXXXXXX"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select id="u-rol" class="form-control">
+          <option value="local">Local Comercial</option>
+          <option value="distribuidor">Distribuidor</option>
+          <option value="transportista">Transportista</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="document.getElementById('modal-usuario').classList.add('hidden')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearUsuario()"><i class="ti ti-check"></i> Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal asignar transportista -->
+<div id="modal-asignar" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="ti ti-steering-wheel" style="color:var(--primary)"></i> Asignar transportista</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-asignar').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- Detalle de la entrega -->
+      <div id="detalle-entrega" style="background:var(--gray-50);border-radius:var(--radius);padding:14px;margin-bottom:16px;font-size:13px;line-height:1.8;border-left:3px solid var(--primary)"></div>
+
+      <!-- Selector de transportista -->
+      <div class="form-group">
+        <label class="form-label">Selecciona el transportista</label>
+        <select id="select-transportista" class="form-control">
+          <option value="">-- Elige un transportista --</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="document.getElementById('modal-asignar').classList.add('hidden')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAsignacion()">
+        <i class="ti ti-check"></i> Asignar transportista
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ver detalle entrega -->
+<div id="modal-detalle" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Detalle de entrega</h3>
+      <button class="modal-close" onclick="document.getElementById('modal-detalle').classList.add('hidden')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="detalle-entrega-info" style="font-size:13px;line-height:2"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="document.getElementById('modal-detalle').classList.add('hidden')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/js/api.js"></script>
+<script>
+const user = requireAuth('admin');
+if (user) {
+  document.getElementById('sidebar-name').textContent = user.nombre;
+  document.getElementById('sidebar-avatar').textContent = getInitials(user.nombre);
+}
+
+let entregaAsignarId = null;
+let transportistas = [];
+
+function recargarPagina() {
+  const activa = document.querySelector('.nav-item.active')?.dataset.page || 'dashboard';
+  showPage(activa);
+}
+
+function showPage(page, el) {
+  document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  if (el) el.classList.add('active');
+  else document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  const titles = { dashboard:'Dashboard', usuarios:'Gestión de usuarios', locales:'Locales', entregas:'Entregas', reportes:'Reportes' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'dashboard') cargarDashboard();
+  if (page === 'usuarios')  cargarUsuarios();
+  if (page === 'locales')   cargarLocales();
+  if (page === 'entregas')  { cargarTransportistas(); cargarEntregas(); }
+  if (page === 'reportes')  cargarReportes();
+}
+
+// ── Dashboard ─────────────────────────────────────────────
+async function cargarDashboard() {
+  try {
+    const d = await api.dashboard('admin');
+    document.getElementById('st-usuarios').textContent    = d.totalUsuarios;
+    document.getElementById('st-locales').textContent     = d.totalLocales;
+    document.getElementById('st-entregas').textContent    = d.totalEntregas;
+    document.getElementById('st-incidencias').textContent = d.incidenciasHoy;
+    const grid = document.getElementById('estados-grid');
+    grid.innerHTML = (d.porEstado || []).map(e =>
+      `<div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:14px 20px;text-align:center;min-width:120px">
+        ${badge(e.estado)}
+        <div style="font-size:24px;font-weight:700;margin-top:8px">${e.dataValues?.total || e.total || 0}</div>
+      </div>`).join('') || '<p style="color:var(--gray-500)">Sin entregas registradas</p>';
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Transportistas (para el selector) ────────────────────
+async function cargarTransportistas() {
+  try {
+    transportistas = await api.usuarios.listar('?rol=transportista');
+    const select = document.getElementById('select-transportista');
+    select.innerHTML = '<option value="">-- Elige un transportista --</option>' +
+      transportistas.map(t => `<option value="${t.id}">${t.nombre} ${t.telefono ? '· '+t.telefono : ''}</option>`).join('');
+  } catch(err) { console.error('Error cargando transportistas:', err.message); }
+}
+
+// ── Entregas ──────────────────────────────────────────────
+async function cargarEntregas() {
+  const estado = document.getElementById('filtro-estado-entrega').value;
+  try {
+    const entregas = await api.entregas.todas(estado ? `?estado=${estado}` : '');
+    const ROL_COLOR = { programada:'var(--gray-500)', confirmada:'var(--success)', en_ruta:'var(--warning)', completada:'var(--success)', cancelada:'var(--danger)' };
+
+    document.getElementById('tabla-entregas').innerHTML = !entregas.length
+      ? `<tr><td colspan="7" style="text-align:center;color:var(--gray-500);padding:30px">Sin entregas para mostrar</td></tr>`
+      : entregas.map(e => {
+          const local = e.reserva?.ventana?.local?.nombre || '—';
+          const dist  = e.reserva?.distribuidor?.nombre   || '—';
+          const trans = e.transportista?.nombre           || '—';
+          const fecha = e.reserva?.ventana?.fecha         || '—';
+          const sinAsignar = !e.transportista_id;
+          const puedeAsignar = !['completada','cancelada'].includes(e.estado);
+
+          return `<tr>
+            <td style="color:var(--gray-500);font-size:12px">#${e.id}</td>
+            <td><strong>${local}</strong></td>
+            <td>${dist}</td>
+            <td>
+              ${sinAsignar
+                ? `<span style="color:var(--gray-400);font-style:italic">Sin asignar</span>`
+                : `<div style="display:flex;align-items:center;gap:6px">
+                    <div style="width:26px;height:26px;border-radius:50%;background:var(--primary-l);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--primary)">${getInitials(trans)}</div>
+                    <span>${trans}</span>
+                   </div>`
+              }
+            </td>
+            <td>${fecha}</td>
+            <td>${badge(e.estado)}</td>
+            <td>
+              <div style="display:flex;gap:6px;align-items:center">
+                ${puedeAsignar
+                  ? `<button class="btn btn-primary btn-sm" onclick="abrirAsignar(${e.id},'${local}','${fecha}','${e.reserva?.ventana?.hora_inicio?.slice(0,5)||''}','${trans}',${e.transportista_id||0})">
+                      <i class="ti ti-steering-wheel"></i> ${sinAsignar ? 'Asignar' : 'Cambiar'}
+                    </button>`
+                  : ''
+                }
+                <button class="btn btn-outline btn-sm" onclick="verDetalle(${e.id})">
+                  <i class="ti ti-eye"></i>
+                </button>
+              </div>
+            </td>
+          </tr>`;
+        }).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Abrir modal asignar ───────────────────────────────────
+function abrirAsignar(entregaId, local, fecha, hora, transActual, transId) {
+  entregaAsignarId = entregaId;
+
+  document.getElementById('detalle-entrega').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><span style="color:var(--gray-500)">Entrega:</span> <strong>#${entregaId}</strong></div>
+      <div><span style="color:var(--gray-500)">Local:</span> <strong>${local}</strong></div>
+      <div><span style="color:var(--gray-500)">Fecha:</span> <strong>${fecha}</strong></div>
+      <div><span style="color:var(--gray-500)">Hora:</span> <strong>${hora}</strong></div>
+      <div style="grid-column:1/-1"><span style="color:var(--gray-500)">Transportista actual:</span> <strong>${transActual !== '—' ? transActual : 'Sin asignar'}</strong></div>
+    </div>`;
+
+  // Preseleccionar el transportista actual si ya tiene uno
+  if (transId) {
+    document.getElementById('select-transportista').value = transId;
+  } else {
+    document.getElementById('select-transportista').value = '';
+  }
+
+  document.getElementById('modal-asignar').classList.remove('hidden');
+}
+
+// ── Confirmar asignación ──────────────────────────────────
+async function confirmarAsignacion() {
+  const transportistaId = document.getElementById('select-transportista').value;
+  if (!transportistaId) {
+    showToast('Selecciona un transportista', '', 'warning');
+    return;
+  }
+
+  try {
+    await api.entregas.asignar(entregaAsignarId, transportistaId);
+    const nombre = transportistas.find(t => t.id == transportistaId)?.nombre || 'Transportista';
+    showToast('✅ Transportista asignado', nombre + ' fue asignado a la entrega #' + entregaAsignarId, 'success');
+    document.getElementById('modal-asignar').classList.add('hidden');
+    cargarEntregas();
+  } catch(err) {
+    showToast('Error al asignar', err.message, 'danger');
+  }
+}
+
+// ── Ver detalle ───────────────────────────────────────────
+async function verDetalle(id) {
+  try {
+    const e = await api.entregas.obtener(id);
+    document.getElementById('detalle-entrega-info').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><span style="color:var(--gray-500)">ID Entrega:</span><br><strong>#${e.id}</strong></div>
+        <div><span style="color:var(--gray-500)">Estado:</span><br>${badge(e.estado)}</div>
+        <div><span style="color:var(--gray-500)">Local:</span><br><strong>${e.reserva?.ventana?.local?.nombre || '—'}</strong></div>
+        <div><span style="color:var(--gray-500)">Dirección:</span><br>${e.reserva?.ventana?.local?.direccion || '—'}</div>
+        <div><span style="color:var(--gray-500)">Distribuidor:</span><br><strong>${e.reserva?.distribuidor?.nombre || '—'}</strong></div>
+        <div><span style="color:var(--gray-500)">Teléfono dist.:</span><br>${e.reserva?.distribuidor?.telefono || '—'}</div>
+        <div><span style="color:var(--gray-500)">Transportista:</span><br><strong>${e.transportista?.nombre || 'Sin asignar'}</strong></div>
+        <div><span style="color:var(--gray-500)">Teléfono trans.:</span><br>${e.transportista?.telefono || '—'}</div>
+        <div><span style="color:var(--gray-500)">Fecha:</span><br><strong>${e.reserva?.ventana?.fecha || '—'}</strong></div>
+        <div><span style="color:var(--gray-500)">Horario:</span><br><strong>${e.reserva?.ventana?.hora_inicio?.slice(0,5) || '—'} – ${e.reserva?.ventana?.hora_fin?.slice(0,5) || '—'}</strong></div>
+        <div><span style="color:var(--gray-500)">Carga:</span><br>${e.reserva?.descripcion_carga || '—'}</div>
+        <div><span style="color:var(--gray-500)">Peso:</span><br>${e.reserva?.peso_kg ? e.reserva.peso_kg + ' kg' : '—'}</div>
+        <div><span style="color:var(--gray-500)">Llegada:</span><br>${e.hora_llegada ? formatFecha(e.hora_llegada) : '—'}</div>
+        <div><span style="color:var(--gray-500)">Completado:</span><br>${e.hora_completado ? formatFecha(e.hora_completado) : '—'}</div>
+        ${e.observaciones ? `<div style="grid-column:1/-1"><span style="color:var(--gray-500)">Observaciones:</span><br>${e.observaciones}</div>` : ''}
+        ${e.incidencias?.length ? `<div style="grid-column:1/-1"><span style="color:var(--danger)">Incidencias (${e.incidencias.length}):</span><br>${e.incidencias.map(i=>`<span class="badge badge-cancelada" style="margin:2px">${i.tipo}</span>`).join(' ')}</div>` : ''}
+      </div>`;
+    document.getElementById('modal-detalle').classList.remove('hidden');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Usuarios ──────────────────────────────────────────────
+async function cargarUsuarios() {
+  const rol = document.getElementById('filtro-rol').value;
+  try {
+    const usuarios = await api.usuarios.listar(rol ? `?rol=${rol}` : '');
+    const ROL = { admin:'Admin', local:'Local', distribuidor:'Distribuidor', transportista:'Transportista' };
+    document.getElementById('tabla-usuarios').innerHTML = !usuarios.length
+      ? `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:30px">Sin usuarios</td></tr>`
+      : usuarios.map(u => `<tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:30px;height:30px;border-radius:50%;background:var(--primary-l);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--primary)">${getInitials(u.nombre)}</div>
+              <strong>${u.nombre}</strong>
+            </div>
+          </td>
+          <td style="color:var(--gray-500)">${u.email}</td>
+          <td><span class="badge" style="background:var(--gray-100);color:var(--gray-700)">${ROL[u.rol]||u.rol}</span></td>
+          <td>${u.telefono || '—'}</td>
+          <td>${u.activo ? '<span class="badge badge-disponible">Activo</span>' : '<span class="badge badge-cancelada">Inactivo</span>'}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="toggleUsuario(${u.id},${u.activo})">
+              ${u.activo ? 'Desactivar' : 'Activar'}
+            </button>
+          </td>
+        </tr>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Locales ───────────────────────────────────────────────
+async function cargarLocales() {
+  try {
+    const locales = await api.locales.listar();
+    document.getElementById('tabla-locales').innerHTML = !locales.length
+      ? `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:30px">Sin locales</td></tr>`
+      : locales.map(l => `<tr>
+          <td><strong>${l.nombre}</strong></td>
+          <td>${l.ciudad}</td>
+          <td style="color:var(--gray-500);font-size:12px">${l.direccion}</td>
+          <td style="text-align:center">${l.capacidad_muelles}</td>
+          <td>${l.horario_apertura?.slice(0,5)} – ${l.horario_cierre?.slice(0,5)}</td>
+          <td>${l.activo ? '<span class="badge badge-disponible">Activo</span>' : '<span class="badge badge-cancelada">Inactivo</span>'}</td>
+        </tr>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Reportes ──────────────────────────────────────────────
+async function cargarReportes() {
+  try {
+    const d = await api.dashboard('admin');
+    document.getElementById('reporte-stats').innerHTML = `
+      <div class="stat-card blue"><div class="stat-label">Total usuarios</div><div class="stat-value">${d.totalUsuarios}</div></div>
+      <div class="stat-card green"><div class="stat-label">Locales activos</div><div class="stat-value">${d.totalLocales}</div></div>
+      <div class="stat-card amber"><div class="stat-label">Entregas totales</div><div class="stat-value">${d.totalEntregas}</div></div>
+      <div class="stat-card red"><div class="stat-label">Incidencias hoy</div><div class="stat-value">${d.incidenciasHoy}</div></div>`;
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Crear usuario ─────────────────────────────────────────
+async function crearUsuario() {
+  const datos = {
+    nombre:   document.getElementById('u-nombre').value,
+    email:    document.getElementById('u-email').value,
+    password: document.getElementById('u-password').value,
+    telefono: document.getElementById('u-telefono').value,
+    rol:      document.getElementById('u-rol').value
+  };
+  if (!datos.nombre || !datos.email || !datos.password) {
+    showToast('Error', 'Completa nombre, email y contraseña', 'danger');
+    return;
+  }
+  try {
+    await api.usuarios.crear(datos);
+    showToast('Usuario creado', datos.nombre, 'success');
+    document.getElementById('modal-usuario').classList.add('hidden');
+    cargarUsuarios();
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function toggleUsuario(id, activo) {
+  try {
+    await api.usuarios.actualizar(id, { activo: !activo });
+    showToast('Usuario actualizado', '', 'success');
+    cargarUsuarios();
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+// ── Cerrar modales con ESC ────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+});
+
+// ── Init ──────────────────────────────────────────────────
+cargarDashboard();
+</script>
+</body>
+</html>

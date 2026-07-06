@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Agenda del Local</title>
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+  <style>
+    .agenda-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .slot-card {
+      border: 1px solid var(--gray-200); border-radius: var(--radius-lg);
+      padding: 14px; background: var(--white); transition: box-shadow .15s;
+    }
+    .slot-card:hover { box-shadow: var(--shadow); }
+    .slot-time { font-size: 18px; font-weight: 700; color: var(--gray-900); }
+    .slot-muelle { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
+    .slot-info { font-size: 12px; color: var(--gray-700); margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon" style="background:var(--success)"><i class="ti ti-building-store"></i></div>
+      <div><div class="logo-text">Syncargo</div><div class="logo-sub">Local Comercial</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" href="agenda.html"><i class="ti ti-calendar"></i> Agenda del Día</a>
+      <a class="nav-item" href="ventanas.html"><i class="ti ti-clock"></i> Mis Ventanas</a>
+      <a class="nav-item" href="solicitudes.html"><i class="ti ti-bell"></i> Solicitudes <span class="nav-badge" id="notif-badge" style="display:none">0</span></a>
+      <a class="nav-item" href="historial.html"><i class="ti ti-history"></i> Historial</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar" style="background:var(--success)">LC</div>
+      <div class="user-info"><div class="user-name" id="user-name">Local</div><div class="user-role" id="user-role">Local Comercial</div></div>
+      <button class="btn-logout" onclick="api.logout()"><i class="ti ti-logout"></i></button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Agenda del Día</div>
+      <div class="topbar-actions">
+        <input type="date" id="fecha-sel" class="form-control" style="width:auto" onchange="cargar()">
+        <button class="btn btn-primary btn-sm" onclick="window.location='ventanas.html'"><i class="ti ti-plus"></i> Nueva Ventana</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <!-- Stats del día -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="stat-card"><div class="stat-icon green"><i class="ti ti-clock"></i></div><div><div class="stat-value" id="s-disponibles">—</div><div class="stat-label">Disponibles</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue"><i class="ti ti-calendar-check"></i></div><div><div class="stat-value" id="s-reservadas">—</div><div class="stat-label">Reservadas</div></div></div>
+        <div class="stat-card"><div class="stat-icon amber"><i class="ti ti-bell"></i></div><div><div class="stat-value" id="s-pendientes">—</div><div class="stat-label">Pendientes aprobación</div></div></div>
+        <div class="stat-card"><div class="stat-icon red"><i class="ti ti-lock"></i></div><div><div class="stat-value" id="s-bloqueadas">—</div><div class="stat-label">Bloqueadas</div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" id="titulo-agenda">Agenda</div>
+          <span id="local-nombre" style="font-size:12px;color:var(--gray-500)"></span>
+        </div>
+        <div class="agenda-grid" id="agenda-grid">
+          <div style="text-align:center;padding:32px;grid-column:1/-1"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal detalle reserva -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Detalle de Reserva</div>
+      <button class="btn btn-ghost btn-icon" onclick="ui.modal('modal-detalle')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="modal-detalle-body"></div>
+    <div class="modal-footer" id="modal-detalle-footer"></div>
+  </div>
+</div>
+
+<script src="../shared/js/api.js"></script>
+<script>
+  api.requireAuth('local');
+  ui.setupSidebar();
+
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('fecha-sel').value = hoy;
+
+  async function cargar() {
+    const fecha = document.getElementById('fecha-sel').value;
+    document.getElementById('titulo-agenda').textContent = `Agenda — ${ui.fecha(fecha)}`;
+    try {
+      const ventanas = await api.get(`/ventanas/mi-local?fecha=${fecha}`);
+      const s = (e) => ventanas.filter(v => v.estado === e).length;
+      document.getElementById('s-disponibles').textContent = s('disponible');
+      document.getElementById('s-reservadas').textContent = s('reservada');
+      document.getElementById('s-bloqueadas').textContent = s('bloqueada');
+
+      // Pendientes = reservas con estado pendiente
+      const pend = ventanas.filter(v => v.reserva?.estado === 'pendiente').length;
+      document.getElementById('s-pendientes').textContent = pend;
+
+      const grid = document.getElementById('agenda-grid');
+      if (!ventanas.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">📅</div><div class="empty-title">Sin ventanas para este día</div><div class="empty-desc">Crea ventanas horarias para comenzar a recibir reservas</div></div>';
+        return;
+      }
+      grid.innerHTML = ventanas.map(v => {
+        const r = v.reserva;
+        const col = { disponible:'var(--success-light)', reservada:'var(--primary-light)', bloqueada:'var(--gray-100)' }[v.estado];
+        return `
+          <div class="slot-card" style="border-color:${col};cursor:${r?'pointer':'default'}" onclick="${r?`verReserva(${JSON.stringify(JSON.stringify(v))})`:''}" >
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div class="slot-time">${ui.hora(v.hora_inicio)} – ${ui.hora(v.hora_fin)}</div>
+                <div class="slot-muelle">Muelle ${v.muelle}</div>
+              </div>
+              ${ui.badge(v.estado)}
+            </div>
+            ${r ? `<div class="slot-info" style="border-top:1px solid var(--gray-100);padding-top:8px;margin-top:8px">
+              <div><strong>${r.distribuidor?.nombre||'—'}</strong></div>
+              <div style="color:var(--gray-500)">${r.distribuidor?.empresa||''}</div>
+              <div style="margin-top:4px">${ui.badge(r.estado)}</div>
+              ${r.descripcion_carga?`<div style="margin-top:4px;color:var(--gray-600)">${r.descripcion_carga}</div>`:''}
+            </div>` : '<div style="color:var(--gray-400);font-size:12px;margin-top:8px">Sin reserva</div>'}
+          </div>`;
+      }).join('');
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  function verReserva(vStr) {
+    const v = JSON.parse(vStr);
+    const r = v.reserva;
+    if (!r) return;
+    document.getElementById('modal-detalle-body').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group" style="margin:0"><label class="form-label">Distribuidor</label><p>${r.distribuidor?.nombre} — ${r.distribuidor?.empresa||''}</p><p style="color:var(--gray-500)">${r.distribuidor?.email} · ${r.distribuidor?.telefono||''}</p></div>
+        <div class="form-grid">
+          <div class="form-group" style="margin:0"><label class="form-label">Horario</label><p>${ui.hora(v.hora_inicio)} – ${ui.hora(v.hora_fin)}</p></div>
+          <div class="form-group" style="margin:0"><label class="form-label">Muelle</label><p>${v.muelle}</p></div>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label">Carga</label><p>${r.descripcion_carga||'—'}</p></div>
+        <div class="form-grid">
+          <div class="form-group" style="margin:0"><label class="form-label">Peso</label><p>${r.peso_kg||'—'} kg</p></div>
+          <div class="form-group" style="margin:0"><label class="form-label">Bultos</label><p>${r.num_bultos||'—'}</p></div>
+        </div>
+        <div class="form-group" style="margin:0"><label class="form-label">Placa vehículo</label><p>${r.vehiculo_placa||'—'}</p></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Estado reserva</label>${ui.badge(r.estado)}</div>
+        ${r.estado==='pendiente'?`<div class="form-group" style="margin:0"><label class="form-label">Motivo rechazo (si rechaza)</label><textarea id="motivo-rec" class="form-control" rows="2" placeholder="Opcional"></textarea></div>`:''}
+      </div>`;
+    const footer = document.getElementById('modal-detalle-footer');
+    footer.innerHTML = r.estado === 'pendiente' ? `
+      <button class="btn btn-ghost" onclick="ui.modal('modal-detalle')">Cerrar</button>
+      <button class="btn btn-danger btn-sm" onclick="responder(${r.id},'rechazar')"><i class="ti ti-x"></i> Rechazar</button>
+      <button class="btn btn-success btn-sm" onclick="responder(${r.id},'confirmar')"><i class="ti ti-check"></i> Confirmar</button>` :
+      `<button class="btn btn-ghost" onclick="ui.modal('modal-detalle')">Cerrar</button>`;
+    ui.modal('modal-detalle');
+  }
+
+  async function responder(id, accion) {
+    try {
+      const motivo = document.getElementById('motivo-rec')?.value||'';
+      await api.put(`/reservas/${id}/responder`, { accion, motivo_rechazo: motivo });
+      ui.modal('modal-detalle');
+      ui.toast(`Reserva ${accion==='confirmar'?'confirmada':'rechazada'}`,'success');
+      cargar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  cargar();
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo Admin — Dashboard</title>
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<div class="app-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-truck-delivery"></i></div>
+      <div><div class="logo-text">Syncargo</div><div class="logo-sub">Administrador</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Principal</div>
+      <a class="nav-item active" data-page="dashboard.html" href="dashboard.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a class="nav-item" data-page="usuarios.html" href="usuarios.html"><i class="ti ti-users"></i> Usuarios</a>
+      <a class="nav-item" data-page="locales.html" href="locales.html"><i class="ti ti-building-store"></i> Locales</a>
+      <div class="nav-section-label">Operaciones</div>
+      <a class="nav-item" data-page="operaciones.html" href="operaciones.html"><i class="ti ti-activity"></i> Monitoreo en Vivo</a>
+      <a class="nav-item" data-page="reportes.html" href="reportes.html"><i class="ti ti-chart-bar"></i> Reportes</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">AD</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">Administrador</div>
+        <div class="user-role" id="user-role">Admin</div>
+      </div>
+      <button class="btn-logout" onclick="api.logout()" title="Cerrar sesión"><i class="ti ti-logout"></i></button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Dashboard General</div>
+      <div class="topbar-actions">
+        <span id="fecha-hoy" style="font-size:12px;color:var(--gray-500)"></span>
+        <button class="btn btn-ghost btn-sm" onclick="cargarDatos()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card"><div class="stat-icon blue"><i class="ti ti-users"></i></div><div><div class="stat-value" id="stat-usuarios">—</div><div class="stat-label">Usuarios activos</div></div></div>
+        <div class="stat-card"><div class="stat-icon green"><i class="ti ti-building-store"></i></div><div><div class="stat-value" id="stat-locales">—</div><div class="stat-label">Locales registrados</div></div></div>
+        <div class="stat-card"><div class="stat-icon amber"><i class="ti ti-package"></i></div><div><div class="stat-value" id="stat-hoy">—</div><div class="stat-label">Entregas hoy</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple"><i class="ti ti-chart-line"></i></div><div><div class="stat-value" id="stat-tasa">—%</div><div class="stat-label">Tasa de éxito</div></div></div>
+        <div class="stat-card"><div class="stat-icon green"><i class="ti ti-circle-check"></i></div><div><div class="stat-value" id="stat-completadas">—</div><div class="stat-label">Completadas total</div></div></div>
+        <div class="stat-card"><div class="stat-icon red"><i class="ti ti-circle-x"></i></div><div><div class="stat-value" id="stat-canceladas">—</div><div class="stat-label">Canceladas total</div></div></div>
+      </div>
+
+      <!-- Entregas recientes + Estado por tipo -->
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:16px">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Entregas recientes</div>
+            <a href="operaciones.html" class="btn btn-ghost btn-sm">Ver todo</a>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead><tr>
+                <th>#</th><th>Local</th><th>Distribuidor</th><th>Fecha/Hora</th><th>Estado</th>
+              </tr></thead>
+              <tbody id="tabla-entregas"><tr><td colspan="5" style="text-align:center;padding:24px"><div class="spinner"></div></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Entregas por estado</div></div>
+          <div id="estados-chart" style="display:flex;flex-direction:column;gap:10px;margin-top:4px"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../shared/js/api.js"></script>
+<script>
+  const u = api.requireAuth('admin');
+  if (!u) throw new Error('No auth');
+  ui.setupSidebar();
+  document.getElementById('fecha-hoy').textContent = new Date().toLocaleDateString('es-EC', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  async function cargarDatos() {
+    try {
+      const [resumen, estados, entregas] = await Promise.all([
+        api.get('/reportes/resumen'),
+        api.get('/reportes/por-estado'),
+        api.get('/entregas')
+      ]);
+
+      document.getElementById('stat-usuarios').textContent = resumen.totalUsuarios;
+      document.getElementById('stat-locales').textContent = resumen.totalLocales;
+      document.getElementById('stat-hoy').textContent = resumen.entregasHoy;
+      document.getElementById('stat-tasa').textContent = resumen.tasaExito + '%';
+      document.getElementById('stat-completadas').textContent = resumen.completadas;
+      document.getElementById('stat-canceladas').textContent = resumen.canceladas;
+
+      // Tabla entregas
+      const tbody = document.getElementById('tabla-entregas');
+      if (entregas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">Sin entregas</div></div></td></tr>';
+      } else {
+        tbody.innerHTML = entregas.slice(0, 8).map(e => `
+          <tr>
+            <td>#${e.id}</td>
+            <td>${e.reserva?.ventana?.local?.nombre || '—'}</td>
+            <td>${e.reserva?.distribuidor?.nombre || '—'}</td>
+            <td>${ui.fecha(e.reserva?.ventana?.fecha)} ${ui.hora(e.reserva?.ventana?.hora_inicio)}</td>
+            <td>${ui.badge(e.estado)}</td>
+          </tr>`).join('');
+      }
+
+      // Chart por estado
+      const colores = { programada:'#6B7280', confirmada:'#2563EB', en_ruta:'#D97706', llego_local:'#7C3AED', descargando:'#DC2626', completada:'#16A34A', cancelada:'#9CA3AF' };
+      const total = estados.reduce((s, e) => s + parseInt(e.total), 0);
+      document.getElementById('estados-chart').innerHTML = estados.map(e => `
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:12px">
+            <span>${e.estado}</span><span style="font-weight:600">${e.total}</span>
+          </div>
+          <div style="background:var(--gray-100);border-radius:4px;height:6px">
+            <div style="background:${colores[e.estado]||'#6B7280'};width:${total>0?(e.total/total*100).toFixed(0):0}%;height:100%;border-radius:4px"></div>
+          </div>
+        </div>`).join('');
+
+    } catch (err) { ui.toast(err.message, 'error'); }
+  }
+
+  cargarDatos();
+</script>
+</body>
+</html>

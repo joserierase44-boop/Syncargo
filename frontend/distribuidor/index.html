@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Distribuidor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <style>
+    .horario-card { border:1px solid var(--gray-200); border-radius:var(--radius); padding:16px; background:#fff; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
+    .horario-card:hover { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.08); }
+    .horarios-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+    .entrega-item { border:1px solid var(--gray-200); border-radius:var(--radius); padding:16px; background:#fff; margin-bottom:10px; border-left:4px solid var(--primary); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🚚</div>
+      <div><h2>Syncargo</h2><span>Distribuidor</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard',this)"><i class="ti ti-layout-dashboard"></i>Dashboard</a>
+      <a class="nav-item" data-page="buscar" onclick="showPage('buscar',this)"><i class="ti ti-search"></i>Buscar horarios</a>
+      <a class="nav-item" data-page="entregas" onclick="showPage('entregas',this)"><i class="ti ti-list-check"></i>Mis entregas</a>
+      <a class="nav-item" data-page="historial" onclick="showPage('historial',this)"><i class="ti ti-history"></i>Historial</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="sidebar-user-info">
+        <div class="sidebar-avatar" id="sidebar-avatar">D</div>
+        <div>
+          <div class="u-name" id="sidebar-name">—</div>
+          <div class="u-role">Distribuidor</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()"><i class="ti ti-logout"></i> Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="page-header">
+      <h1 id="page-title">Dashboard</h1>
+    </header>
+
+    <div class="page-content">
+
+      <!-- Dashboard -->
+      <div id="page-dashboard">
+        <div class="stats-grid mb-6">
+          <div class="stat-card blue"><div class="stat-label">Total reservas</div><div class="stat-value" id="st-total">—</div></div>
+          <div class="stat-card amber"><div class="stat-label">Pendientes</div><div class="stat-value" id="st-pend">—</div></div>
+          <div class="stat-card green"><div class="stat-label">Confirmadas</div><div class="stat-value" id="st-conf">—</div></div>
+          <div class="stat-card green"><div class="stat-label">Completadas</div><div class="stat-value" id="st-comp" style="color:var(--success)">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Reservas activas</h3>
+            <button class="btn btn-primary btn-sm" onclick="showPage('buscar')"><i class="ti ti-plus"></i> Nueva reserva</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Local</th><th>Fecha</th><th>Horario</th><th>Carga</th><th>Estado reserva</th><th>Estado entrega</th></tr></thead>
+            <tbody id="tabla-activas"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buscar -->
+      <div id="page-buscar" class="hidden">
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Ciudad</label>
+                <input type="text" id="b-ciudad" class="form-control" placeholder="Ej: Cuenca">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fecha desde</label>
+                <input type="date" id="b-fecha" class="form-control">
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="buscarHorarios()"><i class="ti ti-search"></i> Buscar disponibilidad</button>
+          </div>
+        </div>
+        <div id="resultados-busqueda" class="horarios-grid"></div>
+      </div>
+
+      <!-- Mis entregas -->
+      <div id="page-entregas" class="hidden">
+        <div id="lista-entregas-activas">
+          <div class="empty-state"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Cargando...</p></div>
+        </div>
+      </div>
+
+      <!-- Historial -->
+      <div id="page-historial" class="hidden">
+        <div class="card">
+          <div class="table-wrap">
+            <table><thead><tr><th>Local</th><th>Fecha</th><th>Horario</th><th>Carga</th><th>Estado reserva</th><th>Estado entrega</th></tr></thead>
+            <tbody id="tabla-hist"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal nueva reserva -->
+<div id="modal-reserva" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-header"><h3>Nueva reserva</h3><button class="modal-close" onclick="cerrarModal('modal-reserva')">×</button></div>
+    <div class="modal-body">
+      <div id="info-ventana" style="padding:14px;background:var(--primary-l);border-radius:var(--radius);margin-bottom:16px;font-size:13px;border-left:3px solid var(--primary)"></div>
+      <div class="form-group"><label class="form-label">Descripción de la carga</label><textarea id="r-descripcion" class="form-control" rows="2" placeholder="Ej: Lácteos y productos refrigerados"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Peso (kg)</label><input type="number" id="r-peso" class="form-control" placeholder="0.0" min="0"></div>
+        <div class="form-group"><label class="form-label">Nº bultos</label><input type="number" id="r-bultos" class="form-control" placeholder="0" min="0"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-reserva')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearReserva()"><i class="ti ti-calendar-plus"></i> Reservar</button>
+    </div>
+  </div>
+</div>
+
+<style>@keyframes spin { to { transform:rotate(360deg); } }</style>
+
+<script src="../shared/js/api.js"></script>
+<script>
+const user = requireAuth('distribuidor');
+if (user) {
+  document.getElementById('sidebar-name').textContent = user.nombre;
+  document.getElementById('sidebar-avatar').textContent = getInitials(user.nombre);
+}
+
+let ventanaSeleccionada = null;
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('b-fecha').value = today;
+
+function showPage(page, el) {
+  document.querySelectorAll('[id^="page-"]').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.remove('hidden');
+  if (el) el.classList.add('active');
+  else document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  const titles = { dashboard:'Dashboard', buscar:'Buscar horarios disponibles', entregas:'Mis entregas activas', historial:'Historial' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  if (page === 'dashboard') cargarDashboard();
+  if (page === 'entregas')  cargarEntregas();
+  if (page === 'historial') cargarHistorial();
+}
+
+async function cargarDashboard() {
+  try {
+    const [stats, reservas] = await Promise.all([api.dashboard('distribuidor'), api.reservas.mias()]);
+    document.getElementById('st-total').textContent = stats.total      ?? '0';
+    document.getElementById('st-pend').textContent  = stats.pendientes ?? '0';
+    document.getElementById('st-conf').textContent  = stats.confirmadas?? '0';
+    document.getElementById('st-comp').textContent  = stats.completadas?? '0';
+    const activas = reservas.filter(r => ['pendiente','confirmada'].includes(r.estado));
+    document.getElementById('tabla-activas').innerHTML = !activas.length
+      ? `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:24px">Sin reservas activas. <a style="color:var(--primary);cursor:pointer" onclick="showPage('buscar')">Crear una reserva</a></td></tr>`
+      : activas.slice(0,8).map(r => renderFila(r)).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+function renderFila(r) {
+  const local   = r.ventana?.local?.nombre || '—';
+  const fecha   = r.ventana?.fecha         || '—';
+  const horario = r.ventana ? `${r.ventana.hora_inicio?.slice(0,5)} – ${r.ventana.hora_fin?.slice(0,5)}` : '—';
+  return `<tr>
+    <td><strong>${local}</strong></td>
+    <td>${fecha}</td>
+    <td>${horario}</td>
+    <td style="color:var(--gray-500);font-size:12px">${r.descripcion_carga || '—'}</td>
+    <td>${badge(r.estado)}</td>
+    <td>${r.entrega ? badge(r.entrega.estado) : '—'}</td>
+  </tr>`;
+}
+
+async function buscarHorarios() {
+  const ciudad = document.getElementById('b-ciudad').value.trim();
+  const fecha  = document.getElementById('b-fecha').value;
+  const params = new URLSearchParams();
+  if (ciudad) params.set('ciudad', ciudad);
+  if (fecha)  params.set('fecha',  fecha);
+  const div = document.getElementById('resultados-busqueda');
+  div.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Buscando...</p></div>';
+  try {
+    const ventanas = await api.ventanas.disponibles('?' + params.toString());
+    if (!ventanas.length) {
+      div.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><i class="ti ti-calendar-off"></i><p>Sin ventanas disponibles para los filtros seleccionados</p></div>';
+      return;
+    }
+    div.innerHTML = ventanas.map(v => `
+      <div class="horario-card">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">${v.local?.nombre}</div>
+        <div style="color:var(--gray-500);font-size:12px;margin-bottom:10px">${v.local?.direccion}</div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:13px;margin-bottom:12px">
+          <div><i class="ti ti-calendar" style="color:var(--primary)"></i> <strong>${v.fecha}</strong></div>
+          <div><i class="ti ti-clock" style="color:var(--primary)"></i> ${v.hora_inicio?.slice(0,5)} – ${v.hora_fin?.slice(0,5)}</div>
+          <div><i class="ti ti-door-enter" style="color:var(--gray-500)"></i> <span style="color:var(--gray-500)">Muelle ${v.muelle}</span></div>
+        </div>
+        <button class="btn btn-primary btn-sm w-full" onclick="abrirReserva(${v.id},'${v.local?.nombre}','${v.fecha}','${v.hora_inicio}','${v.hora_fin}',${v.muelle})">
+          <i class="ti ti-calendar-plus"></i> Reservar
+        </button>
+      </div>`).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+function abrirReserva(id, nombre, fecha, ini, fin, muelle) {
+  ventanaSeleccionada = id;
+  document.getElementById('info-ventana').innerHTML = `<strong>${nombre}</strong><br>${fecha} · ${ini?.slice(0,5)} – ${fin?.slice(0,5)} · Muelle ${muelle}`;
+  document.getElementById('r-descripcion').value = '';
+  document.getElementById('r-peso').value = '';
+  document.getElementById('r-bultos').value = '';
+  document.getElementById('modal-reserva').classList.remove('hidden');
+}
+
+function cerrarModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+async function crearReserva() {
+  if (!ventanaSeleccionada) return;
+  const datos = {
+    ventana_id: ventanaSeleccionada,
+    descripcion_carga: document.getElementById('r-descripcion').value,
+    peso_kg: document.getElementById('r-peso').value,
+    num_bultos: document.getElementById('r-bultos').value
+  };
+  if (!datos.descripcion_carga) { showToast('Error', 'Describe la carga', 'danger'); return; }
+  try {
+    await api.reservas.crear(datos);
+    showToast('Reserva creada', 'En espera de confirmación del local', 'success');
+    cerrarModal('modal-reserva');
+    buscarHorarios();
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function cargarEntregas() {
+  const div = document.getElementById('lista-entregas-activas');
+  div.innerHTML = '<div class="empty-state"><i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i><p>Cargando...</p></div>';
+  try {
+    const reservas = await api.reservas.mias();
+    const activas  = reservas.filter(r => ['pendiente','confirmada'].includes(r.estado) || (r.entrega && !['completada','cancelada'].includes(r.entrega?.estado)));
+    if (!activas.length) {
+      div.innerHTML = '<div class="empty-state"><i class="ti ti-inbox"></i><p>Sin entregas activas</p><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="showPage(\'buscar\')">Buscar horarios</button></div>';
+      return;
+    }
+    div.innerHTML = activas.map(r => {
+      const v = r.ventana; const e = r.entrega;
+      return `<div class="entrega-item">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+          <div><strong style="font-size:15px">${v?.local?.nombre || '—'}</strong><br><span style="color:var(--gray-500);font-size:12px">${v?.local?.direccion || '—'}</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${badge(r.estado)}${e ? badge(e.estado) : ''}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:13px;background:var(--gray-50);padding:12px;border-radius:var(--radius);margin-bottom:12px">
+          <div><span style="color:var(--gray-500);font-size:11px">FECHA</span><br><strong>${v?.fecha || '—'}</strong></div>
+          <div><span style="color:var(--gray-500);font-size:11px">HORARIO</span><br><strong>${v?.hora_inicio?.slice(0,5)||'—'} – ${v?.hora_fin?.slice(0,5)||'—'}</strong></div>
+          <div><span style="color:var(--gray-500);font-size:11px">MUELLE</span><br><strong>${v?.muelle || '—'}</strong></div>
+        </div>
+        <div style="font-size:13px">${r.descripcion_carga || '—'} · ${r.peso_kg || '—'} kg · ${r.num_bultos || '—'} bultos</div>
+        ${r.estado === 'pendiente' ? `<button class="btn btn-danger btn-sm" style="margin-top:10px" onclick="cancelarReserva(${r.id})"><i class="ti ti-x"></i> Cancelar reserva</button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function cancelarReserva(id) {
+  if (!confirm('¿Cancelar esta reserva?')) return;
+  try { await api.reservas.cancelar(id); showToast('Reserva cancelada', '', 'success'); cargarEntregas(); }
+  catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+async function cargarHistorial() {
+  try {
+    const reservas = await api.reservas.mias();
+    document.getElementById('tabla-hist').innerHTML = !reservas.length
+      ? `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:30px">Sin historial</td></tr>`
+      : reservas.map(r => {
+          const v = r.ventana; const e = r.entrega;
+          return `<tr>
+            <td><strong>${v?.local?.nombre || '—'}</strong></td>
+            <td>${v?.fecha || '—'}</td>
+            <td>${v?.hora_inicio?.slice(0,5)||'—'} – ${v?.hora_fin?.slice(0,5)||'—'}</td>
+            <td style="color:var(--gray-500);font-size:12px">${r.descripcion_carga || '—'}</td>
+            <td>${badge(r.estado)}</td>
+            <td>${e ? badge(e.estado) : '—'}</td>
+          </tr>`;
+        }).join('');
+  } catch(err) { showToast('Error', err.message, 'danger'); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+});
+
+cargarDashboard();
+</script>
+</body>
+</html>

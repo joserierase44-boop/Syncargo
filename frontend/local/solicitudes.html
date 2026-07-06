@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo — Solicitudes Pendientes</title>
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon" style="background:var(--success)"><i class="ti ti-building-store"></i></div>
+      <div><div class="logo-text">Syncargo</div><div class="logo-sub">Local Comercial</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="agenda.html"><i class="ti ti-calendar"></i> Agenda del Día</a>
+      <a class="nav-item" href="ventanas.html"><i class="ti ti-clock"></i> Mis Ventanas</a>
+      <a class="nav-item active" href="solicitudes.html"><i class="ti ti-bell"></i> Solicitudes <span class="nav-badge" id="notif-badge" style="display:none">0</span></a>
+      <a class="nav-item" href="historial.html"><i class="ti ti-history"></i> Historial</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar" style="background:var(--success)">LC</div>
+      <div class="user-info"><div class="user-name" id="user-name">Local</div><div class="user-role" id="user-role">Local Comercial</div></div>
+      <button class="btn-logout" onclick="api.logout()"><i class="ti ti-logout"></i></button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Solicitudes Pendientes</div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" onclick="cargar()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <div id="lista-solicitudes"><div style="text-align:center;padding:40px"><div class="spinner"></div></div></div>
+    </main>
+  </div>
+</div>
+
+<script src="../shared/js/api.js"></script>
+<script>
+  api.requireAuth('local');
+  ui.setupSidebar();
+
+  async function cargar() {
+    try {
+      const reservas = await api.get('/reservas/pendientes');
+      const cont = document.getElementById('lista-solicitudes');
+      if (!reservas.length) {
+        cont.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">Sin solicitudes pendientes</div><div class="empty-desc">Todas las reservas han sido atendidas</div></div>';
+        return;
+      }
+      cont.innerHTML = reservas.map(r => `
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-weight:600;font-size:15px">${r.distribuidor?.nombre}</div>
+              <div style="font-size:12px;color:var(--gray-500)">${r.distribuidor?.empresa||''} · ${r.distribuidor?.telefono||''}</div>
+              <div style="margin-top:8px;font-size:13px"><strong>Fecha:</strong> ${ui.fecha(r.ventana?.fecha)} de ${ui.hora(r.ventana?.hora_inicio)} a ${ui.hora(r.ventana?.hora_fin)} — Muelle ${r.ventana?.muelle}</div>
+              <div style="font-size:13px"><strong>Carga:</strong> ${r.descripcion_carga||'—'} · ${r.peso_kg||'—'} kg · ${r.num_bultos||'—'} bultos</div>
+              <div style="font-size:13px"><strong>Vehículo:</strong> ${r.vehiculo_placa||'—'}</div>
+              ${r.notas?`<div style="font-size:13px;color:var(--gray-600)"><strong>Notas:</strong> ${r.notas}</div>`:''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn btn-success btn-sm" onclick="responder(${r.id},'confirmar')"><i class="ti ti-check"></i> Confirmar</button>
+              <button class="btn btn-danger btn-sm" onclick="rechazar(${r.id})"><i class="ti ti-x"></i> Rechazar</button>
+            </div>
+          </div>
+        </div>`).join('');
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  async function responder(id, accion, motivo='') {
+    try {
+      await api.put(`/reservas/${id}/responder`, { accion, motivo_rechazo: motivo });
+      ui.toast(accion==='confirmar'?'Reserva confirmada':'Reserva rechazada','success');
+      cargar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  function rechazar(id) {
+    const motivo = prompt('Motivo del rechazo (opcional):');
+    if (motivo !== null) responder(id, 'rechazar', motivo);
+  }
+
+  cargar();
+</script>
+</body>
+</html>

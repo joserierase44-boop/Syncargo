@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo Admin — Usuarios</title>
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-truck-delivery"></i></div>
+      <div><div class="logo-text">Syncargo</div><div class="logo-sub">Administrador</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a class="nav-item active" href="usuarios.html"><i class="ti ti-users"></i> Usuarios</a>
+      <a class="nav-item" href="locales.html"><i class="ti ti-building-store"></i> Locales</a>
+      <a class="nav-item" href="operaciones.html"><i class="ti ti-activity"></i> Monitoreo en Vivo</a>
+      <a class="nav-item" href="reportes.html"><i class="ti ti-chart-bar"></i> Reportes</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">AD</div>
+      <div class="user-info"><div class="user-name" id="user-name">Admin</div><div class="user-role" id="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="api.logout()"><i class="ti ti-logout"></i></button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Gestión de Usuarios</div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" onclick="ui.modal('modal-crear')"><i class="ti ti-plus"></i> Nuevo Usuario</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input type="text" id="filtro-nombre" class="form-control" placeholder="Buscar por nombre..." style="width:220px" oninput="filtrar()">
+          <select id="filtro-rol" class="form-control" style="width:160px" onchange="filtrar()">
+            <option value="">Todos los roles</option>
+            <option value="admin">Admin</option>
+            <option value="local">Local Comercial</option>
+            <option value="distribuidor">Distribuidor</option>
+            <option value="transportista">Transportista</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="cargar()"><i class="ti ti-refresh"></i></button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>#</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Empresa</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="tabla-usuarios"><tr><td colspan="7" style="text-align:center;padding:24px"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal crear usuario -->
+<div class="modal-overlay" id="modal-crear">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Nuevo Usuario</div>
+      <button class="btn btn-ghost btn-icon" onclick="ui.modal('modal-crear')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Nombre</label><input id="c-nombre" class="form-control" placeholder="Nombre completo"></div>
+        <div class="form-group"><label class="form-label">Email</label><input id="c-email" type="email" class="form-control" placeholder="email@empresa.com"></div>
+        <div class="form-group"><label class="form-label">Contraseña</label><input id="c-pass" type="password" class="form-control" placeholder="Mín. 6 caracteres"></div>
+        <div class="form-group"><label class="form-label">Rol</label>
+          <select id="c-rol" class="form-control">
+            <option value="local">Local Comercial</option>
+            <option value="distribuidor">Distribuidor</option>
+            <option value="transportista">Transportista</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Teléfono</label><input id="c-tel" class="form-control" placeholder="0991234567"></div>
+        <div class="form-group"><label class="form-label">Empresa</label><input id="c-empresa" class="form-control" placeholder="Nombre empresa"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="ui.modal('modal-crear')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearUsuario()"><i class="ti ti-check"></i> Crear</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/js/api.js"></script>
+<script>
+  let todos = [];
+  api.requireAuth('admin');
+  ui.setupSidebar();
+
+  async function cargar() {
+    try {
+      todos = await api.get('/usuarios');
+      filtrar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  function filtrar() {
+    const nom = document.getElementById('filtro-nombre').value.toLowerCase();
+    const rol = document.getElementById('filtro-rol').value;
+    const filtrados = todos.filter(u => {
+      const matchNom = !nom || u.nombre.toLowerCase().includes(nom) || u.email.toLowerCase().includes(nom);
+      const matchRol = !rol || u.rol === rol;
+      return matchNom && matchRol;
+    });
+    const roles = { admin:'🛡️ Admin', local:'🏪 Local', distribuidor:'🚛 Distribuidor', transportista:'🚗 Transportista' };
+    const tbody = document.getElementById('tabla-usuarios');
+    if (!filtrados.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👤</div><div class="empty-title">Sin usuarios</div></div></td></tr>'; return; }
+    tbody.innerHTML = filtrados.map(u => `
+      <tr>
+        <td>#${u.id}</td>
+        <td><div style="display:flex;align-items:center;gap:8px"><div class="user-avatar" style="width:28px;height:28px;font-size:11px">${ui.avatar(u.nombre)}</div>${u.nombre}</div></td>
+        <td style="color:var(--gray-500)">${u.email}</td>
+        <td><span class="badge badge-${u.rol}" style="background:var(--gray-100);color:var(--gray-700)">${roles[u.rol]||u.rol}</span></td>
+        <td>${u.empresa||'—'}</td>
+        <td><span class="badge ${u.activo?'badge-completada':'badge-cancelada'}">${u.activo?'Activo':'Inactivo'}</span></td>
+        <td>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="toggleUser(${u.id})" title="${u.activo?'Desactivar':'Activar'}">
+            <i class="ti ti-${u.activo?'user-off':'user-check'}"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function toggleUser(id) {
+    try {
+      await api.patch(`/usuarios/${id}/toggle`);
+      ui.toast('Estado actualizado','success');
+      cargar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  async function crearUsuario() {
+    try {
+      await api.post('/usuarios', {
+        nombre: document.getElementById('c-nombre').value,
+        email: document.getElementById('c-email').value,
+        password: document.getElementById('c-pass').value,
+        rol: document.getElementById('c-rol').value,
+        telefono: document.getElementById('c-tel').value,
+        empresa: document.getElementById('c-empresa').value
+      });
+      ui.modal('modal-crear');
+      ui.toast('Usuario creado','success');
+      cargar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  cargar();
+</script>
+</body>
+</html>

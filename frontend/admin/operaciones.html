@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syncargo Admin — Monitoreo</title>
+  <link rel="stylesheet" href="../shared/css/main.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-truck-delivery"></i></div>
+      <div><div class="logo-text">Syncargo</div><div class="logo-sub">Administrador</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="dashboard.html"><i class="ti ti-layout-dashboard"></i> Dashboard</a>
+      <a class="nav-item" href="usuarios.html"><i class="ti ti-users"></i> Usuarios</a>
+      <a class="nav-item" href="locales.html"><i class="ti ti-building-store"></i> Locales</a>
+      <a class="nav-item active" href="operaciones.html"><i class="ti ti-activity"></i> Monitoreo en Vivo</a>
+      <a class="nav-item" href="reportes.html"><i class="ti ti-chart-bar"></i> Reportes</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">AD</div>
+      <div class="user-info"><div class="user-name" id="user-name">Admin</div><div class="user-role" id="user-role">Administrador</div></div>
+      <button class="btn-logout" onclick="api.logout()"><i class="ti ti-logout"></i></button>
+    </div>
+  </aside>
+  <div class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">Monitoreo de Operaciones en Vivo</div>
+      <div class="topbar-actions">
+        <span id="live-indicator" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--success)">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse 1.5s infinite"></span> En vivo
+        </span>
+        <button class="btn btn-ghost btn-sm" onclick="cargar()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="stat-card"><div class="stat-icon amber"><i class="ti ti-truck-delivery"></i></div><div><div class="stat-value" id="s-enruta">—</div><div class="stat-label">En ruta</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple"><i class="ti ti-map-pin"></i></div><div><div class="stat-value" id="s-llegaron">—</div><div class="stat-label">En local</div></div></div>
+        <div class="stat-card"><div class="stat-icon red"><i class="ti ti-package"></i></div><div><div class="stat-value" id="s-descargando">—</div><div class="stat-label">Descargando</div></div></div>
+        <div class="stat-card"><div class="stat-icon green"><i class="ti ti-circle-check"></i></div><div><div class="stat-value" id="s-completadas">—</div><div class="stat-label">Completadas hoy</div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Todas las entregas</div>
+          <div style="display:flex;gap:8px">
+            <select id="filtro-estado" class="form-control" style="width:160px" onchange="filtrar()">
+              <option value="">Todos los estados</option>
+              <option value="programada">Programada</option>
+              <option value="confirmada">Confirmada</option>
+              <option value="en_ruta">En Ruta</option>
+              <option value="llego_local">Llegó al Local</option>
+              <option value="descargando">Descargando</option>
+              <option value="completada">Completada</option>
+              <option value="cancelada">Cancelada</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>#</th><th>Local</th><th>Distribuidor</th><th>Transportista</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Acción</th></tr></thead>
+            <tbody id="tabla-ops"><tr><td colspan="8" style="text-align:center;padding:32px"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal asignar transportista -->
+<div class="modal-overlay" id="modal-asignar">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Asignar Transportista</div>
+      <button class="btn btn-ghost btn-icon" onclick="ui.modal('modal-asignar')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Transportista</label>
+        <select id="sel-transportista" class="form-control"></select>
+      </div>
+      <input type="hidden" id="entrega-asignar-id">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="ui.modal('modal-asignar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="asignar()"><i class="ti ti-check"></i> Asignar</button>
+    </div>
+  </div>
+</div>
+
+<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
+<script src="../shared/js/api.js"></script>
+<script>
+  let todas = [], transportistas = [];
+  api.requireAuth('admin');
+  ui.setupSidebar();
+
+  async function cargar() {
+    try {
+      [todas, transportistas] = await Promise.all([
+        api.get('/entregas'),
+        api.get('/usuarios?rol=transportista')
+      ]);
+
+      const cnt = (e) => todas.filter(x => x.estado === e).length;
+      document.getElementById('s-enruta').textContent = cnt('en_ruta');
+      document.getElementById('s-llegaron').textContent = cnt('llego_local');
+      document.getElementById('s-descargando').textContent = cnt('descargando');
+      document.getElementById('s-completadas').textContent = cnt('completada');
+
+      document.getElementById('sel-transportista').innerHTML =
+        transportistas.map(t => `<option value="${t.id}">${t.nombre} — ${t.empresa||''}</option>`).join('');
+
+      filtrar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  function filtrar() {
+    const estado = document.getElementById('filtro-estado').value;
+    const lista = estado ? todas.filter(e => e.estado === estado) : todas;
+    const tbody = document.getElementById('tabla-ops');
+    if (!lista.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-title">Sin entregas</div></div></td></tr>'; return; }
+    tbody.innerHTML = lista.map(e => `
+      <tr>
+        <td>#${e.id}</td>
+        <td>${e.reserva?.ventana?.local?.nombre||'—'}</td>
+        <td>${e.reserva?.distribuidor?.nombre||'—'}</td>
+        <td>${e.transportista?.nombre||'<span style="color:var(--gray-400)">Sin asignar</span>'}</td>
+        <td>${ui.fecha(e.reserva?.ventana?.fecha)}</td>
+        <td>${ui.hora(e.reserva?.ventana?.hora_inicio)}</td>
+        <td>${ui.badge(e.estado)}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="abrirAsignar(${e.id})"><i class="ti ti-user-plus"></i></button></td>
+      </tr>`).join('');
+  }
+
+  function abrirAsignar(id) {
+    document.getElementById('entrega-asignar-id').value = id;
+    ui.modal('modal-asignar');
+  }
+
+  async function asignar() {
+    const id = document.getElementById('entrega-asignar-id').value;
+    const tid = document.getElementById('sel-transportista').value;
+    try {
+      await api.put(`/entregas/${id}/asignar`, { transportista_id: tid });
+      ui.modal('modal-asignar');
+      ui.toast('Transportista asignado','success');
+      cargar();
+    } catch(e) { ui.toast(e.message,'error'); }
+  }
+
+  cargar();
+  setInterval(cargar, 30000);
+</script>
+</body>
+</html>
