@@ -1,5 +1,5 @@
 // ── API Client Syncargo ────────────────────────────────────
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://syncargo-production.up.railway.app/api';
 
 const PORTALES = {
   admin: '/admin/index.html',
