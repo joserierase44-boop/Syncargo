@@ -1,5 +1,5 @@
 /* === SYNCARGO CORE JS === */
-const API = 'http://localhost:3000/api';
+const API = 'https://syncargo-production.up.railway.app/api';
 
 // Auth helpers
 const auth = {
